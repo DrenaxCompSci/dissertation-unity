@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - Water
+  - HoleInFloor
+  - HoleInFloorDetails
+  - WaterDetails
+  - DoorTrigger
+  - PlayerLight
+  - DoorTriggerCaveExit
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - 
+  - Water
+  - UI
+  - 
+  - 
+  - Player
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: Background
+    uniqueID: 1429208313
+    locked: 0
+  - name: Floor
+    uniqueID: 971634999
+    locked: 0
+  - name: Path
+    uniqueID: 30565615
+    locked: 0
+  - name: Details
+    uniqueID: 3946912111
+    locked: 0
+  - name: Walls
+    uniqueID: 4077628639
+    locked: 0
+  - name: WallDetails
+    uniqueID: 3149829725
+    locked: 0
+  - name: SuperWallDetails
+    uniqueID: 2372303121
+    locked: 0
+  - name: Player
+    uniqueID: 1227996445
+    locked: 0
+  - name: Rampart Details
+    uniqueID: 900678149
+    locked: 0
