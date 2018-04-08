@@ -35,7 +35,10 @@ public class PlayerBehaviour : MonoBehaviour {
     GameObject playerLight;
 
     Quaternion zeroRotation = new Quaternion(0, 0, 0, 0);
-    Vector3 caveLevel = new Vector3(-80, -13, 0);
+    Vector3 caveEntrance = new Vector3(-80, -11, 0);
+    Vector3 caveExit = new Vector3(-68, -20, 0);
+    Vector3 doorTrigger = new Vector3(7, 7, 0);
+    Vector3 doorTriggerCaveExit = new Vector3(21.75f, -9.75f, 0);
 
     // Tiles to change
     public TileBase waterTile;
@@ -84,36 +87,115 @@ public class PlayerBehaviour : MonoBehaviour {
     public TileBase iceSplashEight;
     public TileBase iceSplashNine;
 
-    public float currentTemperature;
+    // Data variables
+    private float currentTemperature;
+    private float currentLight;
+    private float averageTemperature;
+    private float averageLight;
+
+    private dataPacket[] dataCollector = new dataPacket[5];
+    private int dataCollectorCounter = 0;
+
+    private bool hardwareOn = true;
     public int speedConstant = 4;
 
+    // Format JSON comes in from Pi
     public class dataPacket
     {
         public float temperature;
         public int light;
     }
+    
+    // Use this for initialization
+    void Start()
+    {
+        if (brokerHostname != null)
+        {
+            Connect();
+            client.MqttMsgPublishReceived += client_MqttMsgPublishReceived;
+            byte[] qosLevels = { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE };
+            client.Subscribe(new string[] { "dataTopic" }, qosLevels);
+        }
 
-	// Update is called once per frame
-	void Update () {
+        animator = this.GetComponent<Animator>();
+        rigidBody2D = this.GetComponent<Rigidbody2D>();
+        waterTilemapObject = GameObject.FindWithTag("Water");
+        waterTilemap = waterTilemapObject.GetComponent<Tilemap>();
+        playerLight = GameObject.FindWithTag("PlayerLight");
+        freezeWater();
+    }
+
+    //  Use this when application ends
+    void OnApplicationQuit()
+    {
+        client.Disconnect();
+    }
+
+    // Update is called once per frame
+    void Update () {
+        if (dataCollectorCounter < 5 && hardwareOn == true)
+        {
+            if (Input.GetKey("q"))
+            {
+                hardwareOn = false;
+            }
+            return;
+        }
+
+        if (dataCollectorCounter == 5 && hardwareOn == true)
+        {
+            float totalTemp = 0;
+            float totalLight = 0;
+            // Average calibrated values
+            for(int i = 0; i < dataCollectorCounter; i++)
+            {
+                totalTemp += dataCollector[i].temperature;
+                totalLight += dataCollector[i].light;
+            }
+
+            averageTemperature = totalTemp / 5;
+            averageLight = totalLight / 5;
+
+            Debug.Log("Average temp: " + averageTemperature);
+            Debug.Log("Average light: " + averageLight);
+
+            dataCollectorCounter++;
+            return;
+        }
+
+        // Make light follow player
         Vector3 newLightLocation = new Vector3(this.transform.position.x, this.transform.position.y, -1);
         playerLight.GetComponent<Transform>().SetPositionAndRotation(newLightLocation, zeroRotation);
 
-        if (currentTemperature > 21)
+        if (hardwareOn)
         {
-            meltIce();
-            GameObject.FindWithTag("HoleInFloor").GetComponent<TilemapRenderer>().enabled = false;
-            GameObject.FindWithTag("HoleInFloor").GetComponent<TilemapCollider2D>().enabled = false;
-            GameObject.FindWithTag("HoleInFloorDetails").GetComponent<TilemapRenderer>().enabled = false;
-            GameObject.FindWithTag("WaterDetails").GetComponent<TilemapRenderer>().enabled = true;
+            if (currentTemperature > averageTemperature + 2)
+            {
+                meltIce();
+                // This raises the bridge
+                GameObject.FindWithTag("HoleInFloor").GetComponent<TilemapRenderer>().enabled = false;
+                GameObject.FindWithTag("HoleInFloor").GetComponent<TilemapCollider2D>().enabled = false;
+                GameObject.FindWithTag("HoleInFloorDetails").GetComponent<TilemapRenderer>().enabled = false;
+                GameObject.FindWithTag("WaterDetails").GetComponent<TilemapRenderer>().enabled = true;
+            }
+            else
+            {
+                freezeWater();
+            }
+
+            if (currentLight > averageLight + 200)
+            {
+                playerLight.GetComponent<Light>().intensity = 5;
+            }
+            else
+            {
+                playerLight.GetComponent<Light>().intensity = 0;
+            }
         }
         else
-        {  
-            freezeWater();
-        }
-
-        if (Input.GetKey ("l"))
         {
-            client.Disconnect();
+            // Turns on light permanently 
+            playerLight.GetComponent<Light>().intensity = 5;
         }
 
         if (Input.GetKey ("w") || Input.GetKey("s") || Input.GetKey("a") || Input.GetKey("d"))
@@ -184,7 +266,39 @@ public class PlayerBehaviour : MonoBehaviour {
         if(collision.gameObject.tag == "DoorTrigger")
         {
             Debug.Log("Scene swap");
-            this.GetComponent<Transform>().SetPositionAndRotation(caveLevel, zeroRotation);
+            this.GetComponent<Transform>().SetPositionAndRotation(caveEntrance, zeroRotation);
+        }
+
+        if(collision.gameObject.tag == "DoorTriggerCaveExit")
+        {
+            this.GetComponent<Transform>().SetPositionAndRotation(caveExit, zeroRotation);
+        }
+
+        if(collision.gameObject.tag == "CaveEntrance")
+        {
+            this.GetComponent<Transform>().SetPositionAndRotation(doorTrigger, zeroRotation);
+        }
+
+        if(collision.gameObject.tag == "CaveExit")
+        {
+            this.GetComponent<Transform>().SetPositionAndRotation(doorTriggerCaveExit, zeroRotation);
+        }
+    }
+
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        if(collision.gameObject.tag == "FireLog")
+        {
+            if (Input.GetKey("e"))
+            {
+                GameObject.FindWithTag("Fire").GetComponent<TilemapRenderer>().enabled = true;
+                meltIce();
+                // This raises the bridge
+                GameObject.FindWithTag("HoleInFloor").GetComponent<TilemapRenderer>().enabled = false;
+                GameObject.FindWithTag("HoleInFloor").GetComponent<TilemapCollider2D>().enabled = false;
+                GameObject.FindWithTag("HoleInFloorDetails").GetComponent<TilemapRenderer>().enabled = false;
+                GameObject.FindWithTag("WaterDetails").GetComponent<TilemapRenderer>().enabled = true;
+            }
         }
     }
 
@@ -210,8 +324,14 @@ public class PlayerBehaviour : MonoBehaviour {
         string msg = System.Text.Encoding.UTF8.GetString(e.Message);
         Debug.Log("Received message from " + e.Topic + " : " + msg);
         dataPacket jsonObj = JsonUtility.FromJson<dataPacket>(msg);
-        Debug.Log("Temperature value: " + jsonObj.temperature);
         currentTemperature = jsonObj.temperature;
+        currentLight = jsonObj.light;
+
+        if (dataCollectorCounter < 5)
+        {
+            dataCollector[dataCollectorCounter] = jsonObj;
+            dataCollectorCounter++;
+        }
     }
 
     void changeAnimationState(int state)
@@ -291,23 +411,4 @@ public class PlayerBehaviour : MonoBehaviour {
         waterTilemap.SwapTile(waterSplashThree, iceSplashThree);
         waterTilemapObject.GetComponent<TilemapCollider2D>().enabled = false;
     }
-
-    // Use this for initialization
-    void Start()
-    {
-        if (brokerHostname != null)
-        {
-            Connect();
-            client.MqttMsgPublishReceived += client_MqttMsgPublishReceived;
-            byte[] qosLevels = { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE };
-            client.Subscribe(new string[] { "dataTopic" }, qosLevels);
-        }
-
-        animator = this.GetComponent<Animator>();
-        rigidBody2D = this.GetComponent<Rigidbody2D>();
-        waterTilemapObject = GameObject.FindWithTag("Water");
-        waterTilemap = waterTilemapObject.GetComponent<Tilemap>();
-        playerLight = GameObject.FindWithTag("PlayerLight");
-    }
-
 }

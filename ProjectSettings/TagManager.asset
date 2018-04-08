@@ -11,6 +11,10 @@ TagManager:
   - DoorTrigger
   - PlayerLight
   - DoorTriggerCaveExit
+  - CaveExit
+  - CaveEntrance
+  - FireLog
+  - Fire
   layers:
   - Default
   - TransparentFX
